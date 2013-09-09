@@ -1,0 +1,215 @@
+<!DOCTYPE html> 
+<html>
+    <head>
+        <meta name="viewport" content="initial-scale=1.0 user-scalable=no" />
+        <style type="text/css">
+            html { height: 100% }
+            body { height: 100%; margin: 0; padding: 0 }
+            #map {
+                height: 50%;
+                width: 50%;
+                display: block;
+                clear: both;
+                margin: 0 auto;
+                text-align: center;
+            }
+            #header {
+                width:  100%;
+                display: block;
+                clear: both;
+                text-align: center;
+                /*background-size: 20px 20px;*/
+                /*background-position: center center*/
+            }
+        </style>
+    <!--<meta http-equiv="Content-Type" content="text/html;charset=utf-8">-->
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
+    <script type="text/javascript" src="moment.min.js"></script>
+    <script type="text/javascript" src="https://cdn.firebase.com/v0/firebase.js"></script>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBbsnxVRJFhArXmIn8Hqtc1sTvRiKUexJg&sensor=false"></script>
+    <script type="text/javascript">
+    $(document).ready(
+
+    function($)
+    {
+        var audioElement = document.createElement('audio');
+        audioElement.setAttribute('src', 'Get_It_togeder.mp3');//implement getSeshMusic() here
+        audioElement.load();
+        toggleAudioElement = false;
+        
+
+        if($('#map').length > 0)
+        {
+            var geocoder        =   new google.maps.Geocoder();                     
+            var mapCenter       =   null;                                           //  Hold the center of the map latitude & longitude
+            var map             =   null;                                           //  This variable will hold the map element
+            var points          =   [];                                             //  This array will hold the points on the map, after the user click
+            var startTimes      =   [];                                             //  Start times of sessions.
+            var endTimes        =   [];                                             //  End time of sessions.
+            var markerRegistry  =   [];                                             //  This array contains all the marker objects. This is required
+                                                                                    //  in order to be able later to remove the markers from the map
+                                                                                    //  each time the user adding a new marker.
+            
+            /**
+            *   This method try to get the center of the map based on browser Geolocation information
+            */
+            function initiate_geolocation()
+            {
+                //  This method has two callback functions.
+                //  The first callback is executed if we are able to determine the user geolocation by the browser
+                //  The second callback is executer if we fale to determine the user geolocation
+                navigator.geolocation.getCurrentPosition(handle_geolocation_query, handle_errors);  
+            }
+            
+            /**
+            *   This method executed if the script is unable to determine the
+            *   user geolocation by the browser
+            */
+            function handle_errors(error)  
+            {  
+                mapCenter   =   new google.maps.LatLng(37.978845, 23.708496);       //  Initiate the location showing Greece
+                initMap();                                                          //  Initiate the map building
+            }  
+            
+            /**
+            *   This method executed if the script is able to determine the
+            *   user geolocation by the browser
+            */
+            function handle_geolocation_query(position)
+            {
+                //  Create new LatLng object based on Geolocation information
+                mapCenter   =   new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                initMap();                                                          //  Initiate the map building
+            }
+            
+            /**
+            *   This method initiating the map
+            */
+            function initMap()
+            {
+                //  This object contains the default settings for the map.
+                var mapOptions  =   {
+                    center                  :   mapCenter,
+                    zoom: 8,
+                    mapTypeId: google.maps.MapTypeId.ROADMAP
+                };
+                
+                //  Build a new map and assign the instance to map variable
+                map         =   new google.maps.Map(document.getElementById("map"), mapOptions);
+                
+                //  Add a click event listener, to start adding markers in the map
+                google.maps.event.addListener(
+                    map,
+                    'click',
+                    function(e)
+                    {
+                        getSeshTimes();
+                        addNewMarkersInTheMap(e);
+                        printOnMapThePoints();
+                    }
+                );
+            }
+
+            function getSeshTimes(e){
+              var start  = new Date();
+              var seshMinutes = prompt("How many minutes is your sesh gonna last?");
+              startTimes.push(new Date(start.getTime()));
+              endTimes.push(new Date(start.getTime() + seshMinutes*60000));
+            }
+            
+            /**
+            *   Append new points into the points array
+            */
+            function addNewMarkersInTheMap(e)
+            {
+                points.push(e.latLng);
+            }
+            
+            /**
+            *   This function is responsible to print out the markers on the map.
+            */
+            function printOnMapThePoints()
+            {
+                if(markerRegistry && markerRegistry.length !== 0)                   //  If markerRegistry is set and the length of items is greater than zero
+                {
+                    for(var i = 0; i < markerRegistry.length; i++)                  //  Iterate each element in the markerRegistry
+                    {
+                        markerRegistry[i].setMap(null);                             //  And set map to null. This will remove the Marker from the map
+                    }
+                }
+                
+                markerRegistry  =   [];                                             //  Re-initiate the markerRegistry variable to an empty array
+                for(var i = 0; i < points.length; i++)
+                {
+                    var markerLatLng    =   new google.maps.LatLng(points[i].lat(), points[i].lng());
+                    var address = '';
+                    geocoder.geocode({'latLng':markerLatLng}, function(results,status){
+                      if (status == google.maps.GeocoderStatus.OK){
+                        if(results[0]){
+                          console.log(results[0].formatted_address);
+                          address = results[0].formatted_address;
+                        } 
+                      }
+                    });
+                    var marker          =   new google.maps.Marker(
+                        {
+                            position        :   markerLatLng,
+                            map             :   map,
+                            zIndex          :   (10000 + i),
+                            startTime       :   startTimes[i],
+                            endTime         :   endTimes[i],
+                            address         :   address  
+                        }
+                    );
+                    marker.setMap(map);
+                    var endTime =  moment([0,0,0,marker.endTime.getHours(),marker.endTime.getMinutes(),0,0]);
+                    var startTime =  moment([0,0,0,marker.startTime.getHours(),marker.startTime.getMinutes(),0,0]);
+                    var infowindow =  new google.maps.InfoWindow({
+                      //content: marker.address + '<br>' +
+                      content: 'This sesh started around '+startTime.format('h:mm a')+'<br>'+
+                      'This sesh is ending around '+endTime.format('h:mm a')
+                    });
+
+
+                    bindInfoWindow(marker, map, infowindow);//, 'Marker '+i);
+                    markerRegistry.push(marker);
+                  }
+                function bindInfoWindow(marker, map, infowindow) {
+                  google.maps.event.addListener(marker, 'click', function() {
+                    infowindow.open(map, marker);
+                    if(toggleAudioElement == false){
+                      toggleAudioElement = true;
+                      audioElement.setAttribute('src', 'Get_It_togeder.mp3');
+                      audioElement.play();
+                    }
+                    else{
+                      toggleAudioElement = false;
+                      audioElement.setAttribute('src', 'Get_It_togeder.mp3');
+                      audioElement.pause();
+                    }
+                  });
+                  // google.maps.event.addListener(marker, 'click', function() {
+                  //   infowindow.open(map, marker);
+                  //   audioElement.pause();
+                  // });
+                } 
+            }
+            
+            /**
+            *   Initiate the Google Map
+            */
+            initiate_geolocation();
+        }
+
+    }
+);
+
+    </script>
+    </head>
+    <body>
+        <div id="header">
+        <img src="logo2.jpg" id="logo_img">
+        </div>
+        <div id="map"/>
+    </body>
+</html>
